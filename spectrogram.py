@@ -7,23 +7,27 @@ import scipy.io.wavfile
 from scipy import signal
 import matplotlib.pyplot as plt
 import numpy as np
+import math
 import io
 import csv
 from decimal import *
 from matplotlib.backends.backend_pdf import PdfPages
 
-pmf_file = "data/thurs_test35.pmf"
+pmf_file = "data/thurs_test36.pmf"
 wav_file_name = "space_sounds.wav"
 pdf_file_name = "spectrogram.pdf"
 in_file = io.open(pmf_file,"r")
 log_file = io.open("log.txt","a")
 lines = in_file.readlines()    #Contains all the pmf's frames
-avg_values = []    #Stores the average energy value from each frame 
+avg_values = []    #Stores the average energy value from each frame
+avg_values_no_zeros = []    #Contains all nonzero avg_values
 zero_frames = []    #Stores the frame numbers that have no hits
 nonzero_frames = []    #Stores the frame numbers that have hits
+frame_values_with_avg_values = []    #Stores lists with each frame value and its respective avg_energy
 fs = 10000    #Sampling frequency
 ts = time.time()    #Gets the time at execution
 st = datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S" + " CST")    #Translates time to human-readable time
+in_file.seek(0)    #Returns to the top of in_file
 
 
 #---log.txt entry header
@@ -48,7 +52,6 @@ def get_frame_count():
 
     return number_of_frames
 
-in_file.seek(0)
 
 #Isolates a single 256x256 pixel frame from the pmf file
 def find_frame():
@@ -87,35 +90,31 @@ frame_count = get_frame_count()
 with open("avg_values.csv","w") as ofile: 
     writer = csv.writer(ofile, delimiter=" ")
     writer.writerow(("Frame# AvgEnergy").split(" "))
+
     for frame_number in range(frame_count):
         frame = find_frame()
         avg = avg_energy(frame)
         writer.writerow((str(frame_number+1)+" "+str(avg)).split(" "))
-        #if frame_number >= 50 and frame_number <= 90:
-        #    avg = avg * 4
-        avg_values.append(avg**2)
+        avg_values.append(math.log(avg+1))
+
         if avg != 0:
             nonzero_frames.append(frame_number+1)
+            avg_values_no_zeros.append(avg)
         else:
             zero_frames.append(frame_number+1)
+
         #print("Frame: ["+str((frame_number+1))+"] Avg_Energy: ["+str(avg)+"]")
         print("Remaining frames: "+str(len(lines)/256-len(avg_values)))
+
 nonzero_frames_string = str(nonzero_frames)
 zero_frames_string = str(zero_frames)
 
-#---Creates list of avg values without the zeros
-avg_values_no_zeros = []
-for x in avg_values:
-    if x != 0:
-        avg_values_no_zeros.append(x)
-
+        
 #---Create a list of lists where each element is a list of a frame and its avg value
-frame_values_with_avg_values = []
 for index in range(0, len(nonzero_frames)):
     temp = [str(nonzero_frames[index]), str(avg_values_no_zeros[index]).strip("L")]
     frame_values_with_avg_values.append(map(int,temp))
 frame_values_with_avg_values_string = str(frame_values_with_avg_values)
-
 print("Number of frames with a hit: "+str(len(nonzero_frames)))
 log_file.write("Number of frames with a hit: "+str(len(nonzero_frames)).decode("utf-8")+"\n")
 print("Number of frames without a hit: "+str(len(zero_frames)))
@@ -145,17 +144,11 @@ avg_values = avg_values_long
 #avg_values = avg_values_long
 ##print(avg_values)
 
-
-#---Export avg_values to CSV file
-
-#    for x in range(0, avg_values):
-#        writer.writerow((x+" "+avg_values[x]).split(" "))
-
-        
+     
 #Create .wav file
 print("Creating audio file...")
 avg_energy_array = np.asarray(avg_values, dtype=np.int16)
-scipy.io.wavfile.write(wav_file_name, int(fs), avg_energy_array)
+scipy.io.wavfile.write(wav_file_name, int(fs), avg_energy_array**4)
 length = Decimal(len(avg_values))/Decimal(fs)
 print("Length of wav file: "+str(length)+" seconds.")
 log_file.write("Audio file saved to \""+wav_file_name.decode("utf-8")+"\"\n")
@@ -166,25 +159,26 @@ log_file.write("Length of generated .wav file: "+str(length).decode("utf-8")+" s
 print("Generating spectrogram...")
 #f, t, Sxx = signal.spectrogram(avg_energy_array, fs)
 #plt.pcolormesh(t, f, Sxx)
+#plt.show()
 f = np.asarray(avg_values, dtype=np.int16)
 t = np.arange(0.0, float(length), (float(length)/len(f)))
-fig_size=[16,16]
+nse = 0.01*np.random.random(size=len(t)) #NOISE
+fig_size=[90,20]
 plt.rcParams["figure.figsize"] = fig_size
-#plt.plot(t,f)
-
-#plt.rcParams["image.cmap"] = "plasma"
+plt.rcParams["image.cmap"] = "plasma"
 frame_num = np.arange(0.0, float(number_of_frames), float(max(t))/float(number_of_frames))
 fig,ax = plt.subplots()
 const = []
 for x in range(len(frame_num)):
     const.append(2500)
 line, = plt.plot(frame_num, const, marker=".")
-plot1 = plt.specgram(f, NFFT=256, Fs = fs, noverlap=128, pad_to=256)
+plot1 = plt.specgram(f**2, NFFT=256, Fs = fs)#, noverlap=16, pad_to=64)
 #plt.savefig(pdf_file_name, bbox_inches="tight")
 log_file.write("Spectrogram save to \""+pdf_file_name.decode("utf-8")+"\"\n")
 #print(plot1[0][0])
 
 plt.xlim(min(t), max(t))#.6656)
+plt.ylim(0,fs/2)
 plt.ylabel("Frequency [Hz]")
 plt.xlabel("Time [sec]")
 
@@ -219,7 +213,7 @@ fig.canvas.mpl_connect("motion_notify_event", hover)
 
 plt.show()
 
-plot1 = plt.specgram(f, NFFT=256, Fs = fs, noverlap=128, pad_to=256)
+plot1 = plt.specgram(f**2, NFFT=256, Fs = fs, noverlap=128, pad_to=256)
 plt.savefig(pdf_file_name, bbox_inches="tight")
 
 #log_file.write("Frame numbers with a hit: "+nonzero_frames_string.decode("utf-8")+"\n")
