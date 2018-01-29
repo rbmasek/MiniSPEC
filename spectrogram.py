@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import datetime
-import scipy
 import scipy.io.wavfile
 from scipy import signal
 import matplotlib.pyplot as plt
@@ -141,19 +140,8 @@ log_file.write("Length of generated .wav file: "+str(length).decode("utf-8")+" s
 
 #---Generate spectrogram
 print("Generating spectrogram...")
-
-#f, t, Sxx = signal.spectrogram(avg_energy_array, fs)
-#plt.pcolormesh(t, f, Sxx)
-#plt.show()
-
 f = np.asarray(avg_energy_array, dtype=np.int16)
 t = np.arange(0.0, float(length), (float(length)/len(f)))
-
-#---Noise generation
-#noise_power = 0.01 * fs / 2
-#noise = np.random.normal(scale=np.sqrt(noise_power))#, size=t.shape)
-#noise *= np.exp(-t/5)
-
 fig_size=[90,20]    #Set size of graph
 plt.rcParams["figure.figsize"] = fig_size
 plt.rcParams["image.cmap"] = "plasma"
@@ -170,7 +158,6 @@ line, = plt.plot(frame_num, const, marker=".")
 
 #---Set axis bounds and labels
 plt.xlim(min(t), max(t))
-#plt.ylim(0,fs/2)
 plt.ylabel("Frequency [Hz]")
 plt.xlabel("Time [sec]")
 
@@ -224,17 +211,3 @@ log_file.write("Frame numbers without a hit: "+zero_frames_string.decode("utf-8"
 log_file.write("\n".decode("utf-8"))
 log_file.write("---End Log Entry---\n\n\n\n\n".decode("utf-8"))
 log_file.close()
-
-
-
-
-#---Test example
-#import wave
-
-#audio = wave.open("output.wav","w")
-#audio.writeframesraw(avg_energy)
-#audio.close()
-
-#data = np.random.uniform(-1,1,44100) # 44100 random samples between -1 and 1
-#scaled = np.int16(data/np.max(np.abs(data)) * 32767)
-#scipy.io.wavfile.write('test.wav', 44100, scaled)
