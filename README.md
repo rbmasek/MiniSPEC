@@ -1,5 +1,5 @@
 # MiniSPEC
-## **WIP**
+## **Less of a WIP**
 A small, Python-based script that takes frame data from a MiniPIX, turns it into sound, and generates a spectrogram of the created audio.
 
 Outputs:
