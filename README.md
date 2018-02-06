@@ -6,4 +6,4 @@ Outputs:
 - .csv file containing frame numbers and their average energies
 - .wav file containing the audified data
 - .pdf file containing the generated spectrogram
-- log file detailing logistics# MiniSPEC
+- log file detailing logistics

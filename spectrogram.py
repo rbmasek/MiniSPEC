@@ -11,31 +11,37 @@ import csv
 from decimal import *
 from matplotlib.backends.backend_pdf import PdfPages
 
-pmf_file = "data/thurs_test35.pmf"
-wav_file_name = "space_sounds.wav"
+data_file = "data/all_clusters.csv"
+expansion_num = 10    #Expands the avg_values array by this multiple
+
+file_type = data_file.split(".")[1]
+wav_file_name = data_file.split("/")[1].split(".")[0]+".wav"
 pdf_file_name = "spectrogram.pdf"
-in_file = io.open(pmf_file,"r")
+in_file = io.open(data_file,"r")
 log_file = io.open("log.txt","a")
-lines = in_file.readlines()    #Contains all the pmf's frames
-avg_values = []    #Stores the average energy value from each frame
+energy_values = []
+#avg_values = []    #Stores the average energy value from each frame
 avg_values_no_zeros = []    #Contains all nonzero avg_values
 zero_frames = []    #Stores the frame numbers that have no hits
 nonzero_frames = []    #Stores the frame numbers that have hits
 frame_values_with_avg_values = []    #Stores lists with each frame value and its respective avg_energy
-expansion_num = 1000    #Expands the avg_values array by this multiple
+frame_values_with_avg_values_string = ""
+nonzero_frames_string = ""
+zero_frames_string = ""
 ts = str(datetime.datetime.utcnow())    #Gets the time at execution in UTC
-#st = datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S" + " CST")    #Translates time to human-readable time
-in_file.seek(0)    #Returns to the top of in_file
 
 
 #---log.txt entry header
 log_file.write("---Begin Log Entry---".decode("utf-8")+"\n\n")
-log_file.write("pmf file: "+(pmf_file.split("/")[1]).decode("utf-8")+"\n")
+log_file.write("pmf file: "+(data_file.split("/")[1]).decode("utf-8")+"\n")
 log_file.write("Time of execution: "+ts.decode("utf-8")+" UTC \n")
 
 
 #Removes garbage at end of pmf file
-del lines[-1]
+if file_type == "pmf":
+    lines = in_file.readlines()    #Contains all the pmf's frames
+    del lines[-1]
+    in_file.seek(0)    #Returns to the top of in_file
 
 
 #Determine total number of frames within the given pmf file
@@ -74,44 +80,54 @@ def find_frame_and_avg_energy():
 
 
 #---Process frames
-frame_count = get_frame_count()
-with open("avg_values.csv","w") as ofile: 
-    #writer = csv.writer(ofile, delimiter=" ")
-    #writer.writerow(("Frame# AvgEnergy").split(" "))
+def process_frames():
+    frame_count = get_frame_count()
+    with open("avg_values.csv","w") as ofile: 
+        #writer = csv.writer(ofile, delimiter=" ")
+        #writer.writerow(("Frame# AvgEnergy").split(" "))
 
-    for frame_number in range(frame_count):
-        count = 0
-        frame, avg = find_frame_and_avg_energy()
-        #writer.writerow((str(frame_number+1)+" "+str(avg)).split(" "))
+        for frame_number in range(frame_count):
+            count = 0
+            frame, energy = find_frame_and_avg_energy()
+            #writer.writerow((str(frame_number+1)+" "+str(energy)).split(" "))
 
-        #---Expands the size of the avg_values array
-        while count < expansion_num:
-            avg_values.append(avg)#math.log(avg+0.000000001))
-            count += 1
+            #---Expands the size of the avg_values array
+            while count < expansion_num:
+                energy_values.append(energy)#math.log(energy+0.000000001))
+                count += 1
 
-        if avg != 0:
-            nonzero_frames.append(frame_number+1)
-            avg_values_no_zeros.append(avg)
-        else:
-            zero_frames.append(frame_number+1)
+            if energy != 0:
+                nonzero_frames.append(frame_number+1)
+                avg_values_no_zeros.append(energy)
+            else:
+                zero_frames.append(frame_number+1)
 
-        #print("Frame: ["+str((frame_number+1))+"] Avg_Energy: ["+str(avg)+"]")
-        print("Remaining frames: "+str(len(lines)/256-len(avg_values)/expansion_num))
+            #print("Frame: ["+str((frame_number+1))+"] Avg_Energy: ["+str(energy)+"]")
+            print("Remaining frames: "+str(frame_count-frame_number))
 
-nonzero_frames_string = str(nonzero_frames)
-zero_frames_string = str(zero_frames)
+    nonzero_frames_string = str(nonzero_frames)
+    zero_frames_string = str(zero_frames)
 
-        
-#---Create a list of lists where each element is a list of a frame and its avg value
-for index in range(0, len(nonzero_frames)):
-    temp = [str(nonzero_frames[index]), str(avg_values_no_zeros[index]).strip("L")]
-    frame_values_with_avg_values.append(map(int,temp))
-frame_values_with_avg_values_string = str(frame_values_with_avg_values)
-print("Number of frames with a hit: "+str(len(nonzero_frames)))
-log_file.write("Number of frames with a hit: "+str(len(nonzero_frames)).decode("utf-8")+"\n")
-print("Number of frames without a hit: "+str(len(zero_frames)))
-log_file.write("Number of frames without a hit: "+str(len(zero_frames)).decode("utf-8")+"\n")
-log_file.write("Total number of frames: "+str(len(nonzero_frames)+len(zero_frames)).decode("utf-8")+"\n")
+    #---Create a list of lists where each element is a list of a frame and its avg value
+    for index in range(0, len(nonzero_frames)):
+        temp = [str(nonzero_frames[index]), str(avg_values_no_zeros[index]).strip("L")]
+        frame_values_with_avg_values.append(map(int,temp))
+    frame_values_with_avg_values_string = str(frame_values_with_avg_values)
+    print("Number of frames with a hit: "+str(len(nonzero_frames)))
+    log_file.write("Number of frames with a hit: "+str(len(nonzero_frames)).decode("utf-8")+"\n")
+    print("Number of frames without a hit: "+str(len(zero_frames)))
+    log_file.write("Number of frames without a hit: "+str(len(zero_frames)).decode("utf-8")+"\n")
+    log_file.write("Total number of frames: "+str(len(nonzero_frames)+len(zero_frames)).decode("utf-8")+"\n")
+
+
+def all_clusters():
+    number_of_lines = 0
+    for line in in_file:
+        energy_values.append(float(line.split(",")[3]))
+        number_of_lines += 1
+        print("Cluster: "+str(number_of_lines))
+
+    return number_of_lines
 
 
 #---Repetition function (ideal for very small data sets)
@@ -125,14 +141,23 @@ log_file.write("Total number of frames: "+str(len(nonzero_frames)+len(zero_frame
 #avg_values = avg_values_long
 ##print(avg_values)
 
+
+if file_type == "pmf":
+    process_frames()
+
+else:
+    if file_type == "csv":
+        number_of_frames = all_clusters()    #Even though it's called number of frames, it's really number of lines. I'm just reusing a variable instead of creating another one
+        
+
      
 #---Create .wav file
 print("Creating audio file...")
-avg_energy_array = np.asarray(avg_values, dtype=np.int16) ** 1   #The values to be converted to frequencies
-fs = 100 * max(avg_energy_array)
+energy_array = np.asarray(energy_values, dtype=np.int16) ** 1   #The values to be converted to frequencies
+fs = 100 * max(energy_array)
 log_file.write("Sampling frequency: "+str(fs).decode("utf-8")+" Hz\n")
-scipy.io.wavfile.write(wav_file_name, int(fs), avg_energy_array)    #Generates .wav file
-length = Decimal(len(avg_values))/Decimal(fs)    #Length of the .wav file in seconds
+scipy.io.wavfile.write(wav_file_name, int(fs), energy_array)    #Generates .wav file
+length = Decimal(len(energy_values))/Decimal(fs)    #Length of the .wav file in seconds
 print("Length of wav file: "+str(length)+" seconds.")
 log_file.write("Audio file saved to \""+wav_file_name.decode("utf-8")+"\"\n")
 log_file.write("Length of generated .wav file: "+str(length).decode("utf-8")+" s\n")
@@ -140,7 +165,7 @@ log_file.write("Length of generated .wav file: "+str(length).decode("utf-8")+" s
 
 #---Generate spectrogram
 print("Generating spectrogram...")
-f = np.asarray(avg_energy_array, dtype=np.int16)
+f = np.asarray(energy_array, dtype=np.int16)
 t = np.arange(0.0, float(length), (float(length)/len(f)))
 fig_size=[90,20]    #Set size of graph
 plt.rcParams["figure.figsize"] = fig_size
